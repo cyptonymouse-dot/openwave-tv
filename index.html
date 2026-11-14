@@ -79,7 +79,46 @@ region==='movies-all'?['movies','classic','comedy','documentary'].map(name=>({na
 region==='cartoons'?['animation','kids','family'].map(name=>({name,url:playlistURL(name)})):
 categoryPlaylists[region]?[{name:region,url:playlistURL(region)}]:
 [{name:region,url:region==='world'?'https://iptv-org.github.io/iptv/index.m3u':'https://raw.githubusercontent.com/iptv-org/iptv/master/streams/'+region+'.m3u'}];
-try{const results=await Promise.allSettled(requests.map(async item=>{const res=await fetch(item.url,{cache:'no-store'});if(!res.ok)throw Error(item.name+': HTTP '+res.status);return parseM3U(await res.text(),'iptv-org '+item.name,['nature-all','outdoor','education','science','travel','culture','movies-all','movies','classic','comedy','documentary','cartoons','kids','animation','family','world'].includes(region)?'':region)}));let rows=results.flatMap(r=>r.status==='fulfilled'?r.value:[]);if(!rows.length)throw Error(results.map(r=>r.status==='rejected'?r.reason.message:'').filter(Boolean).join('; ')||'Empty playlist');catalog=safeRows(rows);const removed=rows.length-catalog.length;const missing=results.filter(r=>r.status==='rejected').length;status('Loaded '+groupChannels(rows).length.toLocaleString()+' channels from '+requests.length+' public playlist'+(requests.length>1?'s':'')+'.'+(missing?' '+missing+' playlist(s) unavailable.':'')+(removed?' '+removed+' adult-labelled entries excluded.':''));$('statusBadge').textContent=region==='nature-all'?'Nature & Discovery':region==='movies-all'?'Free Movies':region==='cartoons'?'Cartoons & Kids':categoryPlaylists[region]?region[0].toUpperCase()+region.slice(1):region==='world'?'Worldwide':region.toUpperCase();categories();render()}catch(e){status('Could not fetch the playlist: '+e.message+'. If running as a local file, try hosting this page via a simple web server.','error');$('statusBadge').textContent='Unavailable';categories();render()}}
+const bundledCodes=['lk','in','ae','us','pk','au'];
+const fetchWithTimeout=async (url,ms=14000)=>{
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ms);
+ try{const response=await fetch(url,{cache:'no-store',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);const body=await response.text();if(!body.includes('#EXTINF'))throw Error('Playlist empty');return body}finally{clearTimeout(timer)}
+};
+const cachedPlaylist=key=>{try{return localStorage.getItem('openwave_playlist_'+key)||''}catch{return ''}};
+const cachePlaylist=(key,body)=>{try{if(body.length<1000000)localStorage.setItem('openwave_playlist_'+key,body)}catch{}};
+const fetchPlaylist=async (item)=>{
+ const localCandidate=bundledCodes.includes(item.name)?'./playlists/'+item.name+'.m3u':null;
+ const sources=localCandidate?[localCandidate,item.url]:[item.url];
+ let lastError;
+ for(const url of sources){
+  try{const body=await fetchWithTimeout(url);cachePlaylist(item.name,body);return {body,backup:url.startsWith('./'),cached:false}}catch(e){lastError=e}
+ }
+ const old=cachedPlaylist(item.name);
+ if(old.includes('#EXTINF'))return {body:old,backup:true,cached:true};
+ throw Error(item.name+': '+(lastError?.message||'network unavailable'));
+};
+try{
+ let results=await Promise.allSettled(requests.map(async item=>{
+  const data=await fetchPlaylist(item);
+  const rows=parseM3U(data.body,'iptv-org '+item.name,['nature-all','outdoor','education','science','travel','culture','movies-all','movies','classic','comedy','documentary','cartoons','kids','animation','family','world'].includes(region)?'':region);
+  return {rows,backup:data.backup,cached:data.cached}
+ }));
+ let rows=results.flatMap(r=>r.status==='fulfilled'?r.value.rows:[]);
+ let fallback=false;
+ if(!rows.length && (region==='world'||region==='cartoons'||region==='movies-all'||region==='nature-all')){
+  const extra=await Promise.allSettled(bundledCodes.map(name=>fetchPlaylist({name,url:'https://raw.githubusercontent.com/iptv-org/iptv/master/streams/'+name+'.m3u'})));
+  rows=extra.flatMap((r,i)=>r.status==='fulfilled'?parseM3U(r.value.body,'Bundled '+bundledCodes[i],bundledCodes[i]):[]);
+  fallback=rows.length>0;
+ }
+ if(!rows.length)throw Error(results.map(r=>r.status==='rejected'?r.reason.message:'').filter(Boolean).join('; ')||'No channels available');
+ catalog=safeRows(rows);
+ const removed=rows.length-catalog.length;
+ const missing=results.filter(r=>r.status==='rejected').length;
+ const backup=results.some(r=>r.status==='fulfilled'&&r.value.backup);
+ status('Loaded '+groupChannels(catalog).length.toLocaleString()+' channels.'+(fallback?' Showing backup international channels; selected category feed is currently unreachable.':backup?' Using a same-site or saved playlist backup.':'')+(missing&&!fallback?' '+missing+' external playlist(s) unavailable.':'')+(removed?' '+removed+' adult-labelled entries excluded.':''));
+ $('statusBadge').textContent=fallback?'Backup channels':region==='nature-all'?'Nature & Discovery':region==='movies-all'?'Free Movies':region==='cartoons'?'Cartoons & Kids':categoryPlaylists[region]?region[0].toUpperCase()+region.slice(1):region==='world'?'Worldwide':region.toUpperCase();
+ categories();render();
+}catch(e){status('Channel list unavailable: '+e.message+'. Check internet access or select another country.','error');$('statusBadge').textContent='Unavailable';categories();render()}}
 $('region').value=['nature-all','outdoor','education','science','travel','culture','movies-all','movies','classic','comedy','documentary','cartoons','animation','kids','family','lk','in','ae','gb','us','pk','au','world','custom'].includes(state.region)?state.region:'other';$('region').onchange=e=>loadRegion(e.target.value);$('refreshBtn').onclick=()=>loadRegion(state.region);$('natureBtn').onclick=()=>{state.tab='all';document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='all'));$('search').value='';$('category').value='';loadRegion('nature-all')};$('movieBtn').onclick=()=>{state.tab='all';document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='all'));$('search').value='';$('category').value='';loadRegion('movies-all')};$('cartoonBtn').onclick=()=>{state.tab='all';document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='all'));$('search').value='';$('category').value='';loadRegion('cartoons')};$('search').oninput=render;$('category').onchange=render;
 document.querySelectorAll('[data-tab]').forEach(el=>el.onclick=()=>{state.tab=el.dataset.tab;save();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===state.tab));categories();render()});
 function modal(open){$('modalWrap').classList.toggle('open',open);$('addStatus').textContent=''}$('addBtn').onclick=()=>modal(true);$('closeModal').onclick=()=>modal(false);$('modalWrap').onclick=e=>{if(e.target===$('modalWrap'))modal(false)};document.addEventListener('keydown',e=>{if(e.key==='Escape')modal(false)});
