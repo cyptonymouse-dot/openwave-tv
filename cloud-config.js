@@ -1,6 +1,6 @@
-// Public browser credentials only. Set these after creating a Supabase project.
-// The publishable/anon key is intended for browsers. NEVER put a service_role or secret key here.
+// Public browser credentials for OpenWave TV. Safe to expose only this publishable key.
+// Never include service_role or secret API keys in this file.
 window.OPENWAVE_CLOUD = Object.freeze({
-  url: '',
-  anonKey: ''
+  url: 'https://xfculbeozbyhaluywala.supabase.co',
+  anonKey: 'sb_publishable_4DYoEgrZo_vSnR7edAkECA_uobxgiNa'
 });
