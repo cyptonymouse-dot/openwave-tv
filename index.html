@@ -78,7 +78,7 @@ let requests=region==='nature-all'?['documentary','outdoor','education','science
 region==='movies-all'?['movies','classic','comedy','documentary'].map(name=>({name,url:playlistURL(name)})):
 region==='cartoons'?['animation','kids','family'].map(name=>({name,url:playlistURL(name)})):
 categoryPlaylists[region]?[{name:region,url:playlistURL(region)}]:
-[{name:region,url:region==='world'?'https://iptv-org.github.io/iptv/index.m3u':'https://raw.githubusercontent.com/iptv-org/iptv/master/streams/'+region+'.m3u'}];
+[{name:region,url:region==='world'?'https://iptv-org.github.io/iptv/index.m3u':'https://raw.githubusercontent.com/iptv-org/iptv/master/streams/'+(region==='gb'?'uk':region)+'.m3u'}];
 const bundledCodes=['lk','in','ae','us','pk','au'];
 const fetchWithTimeout=async (url,ms=14000)=>{
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ms);
@@ -87,7 +87,7 @@ const fetchWithTimeout=async (url,ms=14000)=>{
 const cachedPlaylist=key=>{try{return localStorage.getItem('openwave_playlist_'+key)||''}catch{return ''}};
 const cachePlaylist=(key,body)=>{try{if(body.length<1000000)localStorage.setItem('openwave_playlist_'+key,body)}catch{}};
 const fetchPlaylist=async (item)=>{
- const localCandidate=bundledCodes.includes(item.name)?'./playlists/'+item.name+'.m3u':null;
+ const categoryNames=['animation','kids','family','movies','classic','comedy','documentary','outdoor','education','science','travel','culture'];const localCandidate=categoryNames.includes(item.name)?'./playlists/categories/'+item.name+'.m3u':bundledCodes.includes(item.name)?'./playlists/'+item.name+'.m3u':null;
  const sources=localCandidate?[localCandidate,item.url]:[item.url];
  let lastError;
  for(const url of sources){
