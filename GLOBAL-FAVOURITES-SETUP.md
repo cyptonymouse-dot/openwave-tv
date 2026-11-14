@@ -1,3 +1,13 @@
+# Live configuration status (14 Nov 2026)
+
+- The Supabase project `openwave-tv` is created in `ap-south-1` and reports ACTIVE_HEALTHY.
+- The SQL schema and RLS policies are installed and security advisors reported no warnings.
+- `cloud-config.js` has been connected using the public publishable key. **Do not replace it with a secret key.**
+- **One step remains:** create an administrator through [Authentication → Users](https://supabase.com/dashboard/project/xfculbeozbyhaluywala/auth/users). Once created, its UUID can be granted membership in `public.openwave_admins` by an authenticated database administrator. Never publish a user's email or password in the repository.
+- The public Global Favourites list is currently empty until the admin publishes the first channel.
+
+---
+
 # OpenWave TV — Global Favourites setup
 
 OpenWave TV now has **My Favourites** (browser-local) and **Global Favourites** (shared worldwide).
